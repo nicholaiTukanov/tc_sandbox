@@ -10,8 +10,8 @@
 
 #define NUM_REPEATS 3
 
-#define P_START 16
-#define P_END 16
+#define P_START 256
+#define P_END 1024
 #define P_INC 16
 
 // each warp computes a 16x16x16 mat-computation
@@ -147,9 +147,9 @@ __host__ void fp16_gemm_driver(int MP_count) {
         rs_b, cs_b,
         rs_c, cs_c;
 
-    // // 2d tile
-    // dim3 gridDim;
-    // dim3 blockDim;
+    // 2d tile
+    dim3 gridDim;
+    dim3 blockDim;
 
     int p_start = P_START,
         p_end   = P_END,
@@ -161,9 +161,9 @@ __host__ void fp16_gemm_driver(int MP_count) {
     // loop over k
     for (int p = p_start; p <= p_end; p += p_inc) {
 
-        int m = 16, 
-            n = 32,
-            k = 16;
+        int m = p, 
+            n = p,
+            k = p;
 
         // init the strides
         #if ROW_MAJOR
@@ -188,8 +188,8 @@ __host__ void fp16_gemm_driver(int MP_count) {
         init_matrix<half>(B_h, k, n, rs_b, cs_b);
         init_matrix<float>(C_h_old, m, n, rs_c, cs_c);
 
-        print_matrix<half>(A_h, "A_h", m, k, rs_a, cs_a);
-        print_matrix<half>(B_h, "B_h", k, n, rs_b, cs_b);
+        // print_matrix<half>(A_h, "A_h", m, k, rs_a, cs_a);
+        // print_matrix<half>(B_h, "B_h", k, n, rs_b, cs_b);
 
         
         /////////////////////////////////////////////////////////////////////////////////////////////
@@ -219,12 +219,24 @@ __host__ void fp16_gemm_driver(int MP_count) {
         cu_error_check((CUresult) cudaEventCreate(&start));
         cu_error_check((CUresult) cudaEventCreate(&stop ));
 
+        blockDim.x = 128;
+        blockDim.y = 4;
+        gridDim.x = (m + (WMMA_M * blockDim.x / 32 - 1)) / (WMMA_M * blockDim.x / 32);
+        gridDim.y = (n + WMMA_N * blockDim.y - 1) / (WMMA_N * blockDim.y);
+
         for (int irep = 0; irep < nrepeats; irep++) {
             cu_error_check((CUresult) cudaEventRecord(start));
-            wmma_fp16_gemm <<< MP_count, THREADS_PER_BLOCK >>> \
+
+            // wmma_fp16_gemm <<< MP_count, THREADS_PER_BLOCK >>> \
+            //             (A, B, C, D, 
+            //              m, n, k, 
+            //              alpha, beta);
+
+            wmma_fp16_gemm <<< gridDim, blockDim >>> \
                         (A, B, C, D, 
                          m, n, k, 
                          alpha, beta);
+
             cu_error_check((CUresult) cudaEventRecord(stop));
             cu_error_check((CUresult) cudaEventSynchronize(stop));
             
@@ -236,12 +248,13 @@ __host__ void fp16_gemm_driver(int MP_count) {
         cu_error_check((CUresult) cudaMemcpy(D_h, D, sizeof(float) * m * n, cudaMemcpyDeviceToHost));
 
         // END GPU SECTION
+
         /////////////////////////////////////////////////////////////////////////////////////////////
 
         // START CPU CORRECTNESS CHECK
+        // compute cpu ref for correctness checks
         memcpy(C_h, C_h_old, sizeof(float) * m * n);
 
-        // compute cpu ref for correctness checks
         cpu_ref_sgemm<half, float>(A_h, B_h, C_h, 
                                 m, n, k,
                                 rs_a, cs_a,
@@ -249,16 +262,14 @@ __host__ void fp16_gemm_driver(int MP_count) {
                                 rs_c, cs_c,
                                 alpha, beta);
 
-        // return holds count of values that are off by greater than the allowed error
+        // wrong_count holds count of values that are off by greater than the allowed error
         wrong_count += max_abs_diff<float>(C_h, D_h, m, n, &diff, 1e-3);
         // correct = (diff > 1e-3 ? 0 : 1);  
        
-
-        // print data
         tflops = (((double)m * n * k * 2) / (best_time / 1000.)) / 1e12;
 
-        print_matrix<float>(C_h, "C_h", m, n, rs_c, cs_c);
-        print_matrix<float>(D_h, "D_h", m, n, rs_c, cs_c);
+        // print_matrix<float>(C_h, "C_h", m, n, rs_c, cs_c);
+        // print_matrix<float>(D_h, "D_h", m, n, rs_c, cs_c);
 
 
         printf( "data_gpu_simple_gemm" );
