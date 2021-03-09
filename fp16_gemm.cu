@@ -1,18 +1,19 @@
 #include "monolithic.h"
 
-#define ROW_MAJOR 1
+#define ROW_MAJOR 0
+#define MIXED_ORDER 0
 
-#if ROW_MAJOR
+#if ROW_MAJOR || MIXED_ORDER
 #define C_LAYOUT nvcuda::wmma::mem_row_major
 #else
 #define C_LAYOUT nvcuda::wmma::mem_col_major
 #endif
 
-#define NUM_REPEATS 3
+#define NUM_REPEATS 10
 
-#define P_START 256
-#define P_END 1024
-#define P_INC 16
+#define P_START 1024
+#define P_END 1024*50
+#define P_INC 1024
 
 // each warp computes a 16x16x16 mat-computation
 #define WMMA_M 16
@@ -34,7 +35,7 @@
 #define THREADS_PER_BLOCK (WARP_SIZE * WARPS_PER_BLOCK)
 
 // Performs an MxNxK GEMM (D=alpha*A*B + beta*C) assuming:
-//  1) Matrices are packed in memory.
+//  1) Matrices are not packed into blocks. 
 //  2) M, N and K are multiples of 16.
 //  3) Neither A nor B are transposed.
 __global__ void wmma_fp16_gemm(half *A, half *B, float *C, float *D, 
@@ -46,6 +47,10 @@ __global__ void wmma_fp16_gemm(half *A, half *B, float *C, float *D,
     #if ROW_MAJOR
     int lda = k_ld;
     int ldb = n_ld;
+    int ldc = n_ld;
+    #elif MIXED_ORDER
+    int lda = k_ld;
+    int ldb = k_ld;
     int ldc = n_ld;
     #else
     int lda = m_ld;
@@ -60,7 +65,10 @@ __global__ void wmma_fp16_gemm(half *A, half *B, float *C, float *D,
     #if ROW_MAJOR
     nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, nvcuda::wmma::row_major> a_frag;
     nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, nvcuda::wmma::row_major> b_frag;
-    #else 
+    #elif MIXED_ORDER
+    nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, nvcuda::wmma::row_major> a_frag;
+    nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, nvcuda::wmma::col_major> b_frag;
+    #else
     nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, nvcuda::wmma::col_major> a_frag;
     nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, nvcuda::wmma::col_major> b_frag;
     #endif
@@ -70,12 +78,13 @@ __global__ void wmma_fp16_gemm(half *A, half *B, float *C, float *D,
 
     nvcuda::wmma::fill_fragment(acc_frag, 0.0f);
 
-    // perform 16x16x16 mat-mul
+    int aRow = warpM * WMMA_M;
+    int bCol = warpN * WMMA_N;
+
+    // loop over k in increments of 16
     for (int i = 0; i < k_ld; i += WMMA_K) {
 
         int aCol = i;
-        int aRow = warpM * WMMA_M;
-        int bCol = warpN * WMMA_N;
         int bRow = i;
 
         // bounds checking
@@ -85,6 +94,9 @@ __global__ void wmma_fp16_gemm(half *A, half *B, float *C, float *D,
             #if ROW_MAJOR
             nvcuda::wmma::load_matrix_sync(a_frag, A + aCol + aRow * lda, lda);
             nvcuda::wmma::load_matrix_sync(b_frag, B + bCol + bRow * ldb, ldb);
+            #elif MIXED_ORDER
+            nvcuda::wmma::load_matrix_sync(a_frag, A + aCol + aRow * lda, lda);
+            nvcuda::wmma::load_matrix_sync(b_frag, B + bRow + bCol * ldb, ldb);
             #else
             nvcuda::wmma::load_matrix_sync(a_frag, A + aRow + aCol * lda, lda);
             nvcuda::wmma::load_matrix_sync(b_frag, B + bRow + bCol * ldb, ldb);
@@ -103,7 +115,11 @@ __global__ void wmma_fp16_gemm(half *A, half *B, float *C, float *D,
     if (cRow < m_ld && cCol < n_ld) {
 
         // load in c (give it a access pattern)
+        #if ROW_MAJOR || MIXED_ORDER
         nvcuda::wmma::load_matrix_sync(c_frag, C + cCol + cRow * ldc, ldc, C_LAYOUT);
+        #else
+        nvcuda::wmma::load_matrix_sync(c_frag, C + cRow + cCol * ldc, ldc, C_LAYOUT);
+        #endif
 
         // scale result and C and sum them together
         for (int i = 0; i < c_frag.num_elements; i++) {
@@ -111,7 +127,11 @@ __global__ void wmma_fp16_gemm(half *A, half *B, float *C, float *D,
         }
 
         // store result
+        #if ROW_MAJOR || MIXED_ORDER
         nvcuda::wmma::store_matrix_sync(D + cCol + cRow * ldc, c_frag, ldc, C_LAYOUT);
+        #else
+        nvcuda::wmma::store_matrix_sync(D + cRow + cCol* ldc, c_frag, ldc, C_LAYOUT);
+        #endif
     }
 }
 
@@ -147,9 +167,8 @@ __host__ void fp16_gemm_driver(int MP_count) {
         rs_b, cs_b,
         rs_c, cs_c;
 
-    // 2d tile
-    dim3 gridDim;
-    dim3 blockDim;
+    // num threads per block (512 threads)
+    dim3 blockDim(128, 1);
 
     int p_start = P_START,
         p_end   = P_END,
@@ -161,14 +180,18 @@ __host__ void fp16_gemm_driver(int MP_count) {
     // loop over k
     for (int p = p_start; p <= p_end; p += p_inc) {
 
-        int m = p, 
-            n = p,
+        int m = WMMA_M, 
+            n = WMMA_N,
             k = p;
 
         // init the strides
         #if ROW_MAJOR
             rs_a = k; cs_a = 1;
             rs_b = n; cs_b = 1;
+            rs_c = n; cs_c = 1;
+        #elif MIXED_ORDER
+            rs_a = k; cs_a = 1;
+            rs_b = 1; cs_b = k;
             rs_c = n; cs_c = 1;
         #else
             rs_a = 1; cs_a = m;
@@ -219,10 +242,8 @@ __host__ void fp16_gemm_driver(int MP_count) {
         cu_error_check((CUresult) cudaEventCreate(&start));
         cu_error_check((CUresult) cudaEventCreate(&stop ));
 
-        blockDim.x = 128;
-        blockDim.y = 4;
-        gridDim.x = (m + (WMMA_M * blockDim.x / 32 - 1)) / (WMMA_M * blockDim.x / 32);
-        gridDim.y = (n + WMMA_N * blockDim.y - 1) / (WMMA_N * blockDim.y);
+        dim3 gridDim( (m + (WMMA_M * blockDim.x / 32 - 1)) / (WMMA_M * blockDim.x / 32), \
+                      (n + WMMA_N * blockDim.y - 1) / (WMMA_N * blockDim.y) );
 
         for (int irep = 0; irep < nrepeats; irep++) {
             cu_error_check((CUresult) cudaEventRecord(start));
@@ -232,6 +253,9 @@ __host__ void fp16_gemm_driver(int MP_count) {
             //              m, n, k, 
             //              alpha, beta);
 
+            // total threads = blocks * threads
+
+                            // blocks , threads 
             wmma_fp16_gemm <<< gridDim, blockDim >>> \
                         (A, B, C, D, 
                          m, n, k, 
@@ -270,7 +294,6 @@ __host__ void fp16_gemm_driver(int MP_count) {
 
         // print_matrix<float>(C_h, "C_h", m, n, rs_c, cs_c);
         // print_matrix<float>(D_h, "D_h", m, n, rs_c, cs_c);
-
 
         printf( "data_gpu_simple_gemm" );
         printf( "( %2lu, 1:4 ) = [ %4lu %4lu %4lu ",
