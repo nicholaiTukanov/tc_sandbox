@@ -11,9 +11,9 @@
 
 #define NUM_REPEATS 10
 
-#define P_START 1024
-#define P_END 1024*50
-#define P_INC 1024
+#define P_START 16
+#define P_END 32
+#define P_INC 16
 
 // each warp computes a 16x16x16 mat-computation
 #define WMMA_M 16
@@ -23,12 +23,6 @@
 #define M_TILES 1
 #define N_TILES 1
 #define K_TILES 1
-
-// Must be multiples of 16 for wmma code to work
-//
-#define REAL_M M_TILES * WMMA_M
-#define REAL_N N_TILES * WMMA_N
-#define REAL_K K_TILES * WMMA_K
 
 #define WARP_SIZE 32
 #define WARPS_PER_BLOCK 8
@@ -103,7 +97,8 @@ __global__ void wmma_fp16_gemm(half *A, half *B, float *C, float *D,
             #endif
 
 
-            // do matrix-multiplication
+            // do matrix-multiplication 16x16x16
+            // each tc does 4x4x4
             nvcuda::wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);
         }
     }
@@ -167,8 +162,8 @@ __host__ void fp16_gemm_driver(int MP_count) {
         rs_b, cs_b,
         rs_c, cs_c;
 
-    // num threads per block (512 threads)
-    dim3 blockDim(128, 1);
+    // num threads per block (64 threads)
+    dim3 blockDim(64, 1);
 
     int p_start = P_START,
         p_end   = P_END,
@@ -180,8 +175,10 @@ __host__ void fp16_gemm_driver(int MP_count) {
     // loop over k
     for (int p = p_start; p <= p_end; p += p_inc) {
 
-        int m = WMMA_M, 
-            n = WMMA_N,
+        best_time = 1e9;
+
+        int m = p, 
+            n = p,
             k = p;
 
         // init the strides
@@ -242,24 +239,27 @@ __host__ void fp16_gemm_driver(int MP_count) {
         cu_error_check((CUresult) cudaEventCreate(&start));
         cu_error_check((CUresult) cudaEventCreate(&stop ));
 
+        // num of blocks
         dim3 gridDim( (m + (WMMA_M * blockDim.x / 32 - 1)) / (WMMA_M * blockDim.x / 32), \
                       (n + WMMA_N * blockDim.y - 1) / (WMMA_N * blockDim.y) );
+
+        printf("Required shared memory size: %lu Kb\n", SHMEM_SZ / 1024UL);
 
         for (int irep = 0; irep < nrepeats; irep++) {
             cu_error_check((CUresult) cudaEventRecord(start));
 
-            // wmma_fp16_gemm <<< MP_count, THREADS_PER_BLOCK >>> \
-            //             (A, B, C, D, 
-            //              m, n, k, 
-            //              alpha, beta);
+            wmma_fp16_gemm <<< MP_count, THREADS_PER_BLOCK >>> \
+                        (A, B, C, D, 
+                         m, n, k, 
+                         alpha, beta);
 
             // total threads = blocks * threads
 
                             // blocks , threads 
-            wmma_fp16_gemm <<< gridDim, blockDim >>> \
-                        (A, B, C, D, 
-                         m, n, k, 
-                         alpha, beta);
+            // wmma_fp16_gemm <<< gridDim, blockDim >>> \
+            //             (A, B, C, D, 
+            //              m, n, k, 
+            //              alpha, beta);
 
             cu_error_check((CUresult) cudaEventRecord(stop));
             cu_error_check((CUresult) cudaEventSynchronize(stop));
@@ -302,7 +302,7 @@ __host__ void fp16_gemm_driver(int MP_count) {
                 ( unsigned long )n,
                 ( unsigned long )k );
         printf( " %7.2f     %8.4le ];\n", tflops, diff );
-
+        // printf( " %7.2f ];\n", tflops);
 
         // free host matrices
         free(A_h); free(B_h); free(C_h); free(C_h_old); free(D_h);
