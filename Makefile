@@ -1,28 +1,57 @@
-# a simple Makefile for cuda compiling
+# A simple Makefile for compiling and linking tensor core GEMM kernel
 
-# ensure this points to installed cuda dir
-CUDA_PATH    := /usr/local/cuda-11.2
+.PHONY  = all \
+		  driver
 
-CUDA_INCLUDE := $(CUDA_PATH)/include # ensure this points to installed cuda include dir
-# CUDA_LIB     := $(CUDA_PATH)/lib64/libcudart.so
-CUDA_LD      := -lcuda # load cuda flags for nvcc
+# functions
+change_file_types = $(filter-out , $(patsubst %.cu, %.o, $(wildcard $(1)/*.cu)))
 
-CC           := $(CUDA_PATH)/bin/nvcc # target nvidia compiler
-LINKER       := $(CC)
+# include/lib paths
+SRC_PATH       := .
+CUDA_PATH      := /usr/local/cuda-11.2# ensure this points to installed cuda dir
+CUDA_INCLUDE   := $(CUDA_PATH)/include# ensure this points to installed cuda's include dir
+INCLUDE        := $(SRC_PATH)/include# sandbox include
 
-CFLAGS       := -I$(CUDA_INCLUDE) -arch=sm_70 -std=c++11
+# compiler/linker
+CC             := $(CUDA_PATH)/bin/nvcc # target nvidia compiler
+LINKER         := $(CC)
 
-# grab object files
-TEST_DIR     := .
-TEST_OBJS    := $(patsubst %.cu,%.o,$(wildcard $(TEST_DIR)/*.cu))
+# compile time macros
+PRINT_PROP     := 1
+MACROS         := -DPRINT_PROP=1$(PRINT_PROP)
 
-# linker rule
-test: $(TEST_OBJS) $(UTIL_OBJS)
-	$(LINKER) $(TEST_OBJS) $(CUDA_LIB) -o ./driver.x $(CUDA_LD) 	
+# flags to be passed into CC
+CFLAGS         := -I$(CUDA_INCLUDE) -I$(INCLUDE) $(MACROS) -arch=sm_70 -std=c++11
 
-# compile rule
-$(TEST_OBJS): %.o: %.cu
+# load flags
+CUDA_LD        := -lcuda 
+
+# object files
+DRIVER_OBJS    := $(call change_file_types, $(SRC_PATH)/drivers, cu, o)
+KERNEL_OBJS    := $(call change_file_types, $(SRC_PATH)/gemm_kernels, cu, o)
+UTIL_OBJS      := $(call change_file_types, $(SRC_PATH)/utils, cu, o)
+
+# list of all object files
+OBJS          := $(sort $(DRIVER_OBJS) $(KERNEL_OBJS) $(UTIL_OBJS))
+
+all: driver
+
+# compilation rule
+$(OBJS): %.o: %.cu
 	$(CC) $(CFLAGS) -c $< -o $@
 
-clean:
-	rm -rf *.o *.x
+# linker rule
+driver: $(OBJS)
+	$(LINKER) $(OBJS) -o ./driver.x $(CUDA_LD) 	
+
+clean_driver:
+	rm -f ./drivers/*.o
+
+clean_kernels:
+	rm -f ./gemm_kernels/*.o
+
+clean_utils:
+	rm -f ./utils/*.o
+
+clean: clean_driver clean_kernels clean_utils 
+	rm -f *.x

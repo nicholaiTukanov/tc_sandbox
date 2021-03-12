@@ -11,11 +11,18 @@ void cu_error_check(CUresult error) {
 }
 
 void print_dev_prop(cudaDeviceProp dev_prop) {
-    printf("MP count                = %d\n", dev_prop.multiProcessorCount);
-    // printf("Max grid size           = %d\n", *dev_prop.maxGridSize);
-    printf("Max Blocks per MP       = %d \n", dev_prop.maxBlocksPerMultiProcessor);
-    printf("Warp Size               = %d threads \n", dev_prop.warpSize);
-    printf("shared memory per MP    = %ld KB \n", dev_prop.sharedMemPerMultiprocessor / 1024UL);
+    printf("\n");
+    printf("Device Name                 = %s\n", dev_prop.name);
+    printf("MP count                    = %d\n", dev_prop.multiProcessorCount);
+    printf("Max Blocks per MP           = %d\n", dev_prop.maxBlocksPerMultiProcessor);
+    printf("Max Grid Size:              x = %d | y = %d | z = %d\n", dev_prop.maxGridSize[0], dev_prop.maxGridSize[1], dev_prop.maxGridSize[2]);
+    printf("Memory Clock Rate           = %d MHz\n", dev_prop.memoryClockRate / 1000);
+    printf("Warp Size                   = %d threads\n", dev_prop.warpSize);
+    printf("Shared Memory per MP        = %ld KB\n", dev_prop.sharedMemPerMultiprocessor / 1024UL);
+    printf("Shared Memory per Block     = %ld KB\n", dev_prop.sharedMemPerBlock / 1024UL);
+    printf("L2 Cache Size               = %ld KB\n", dev_prop.l2CacheSize / 1024UL);
+    printf("Global Memory Size          = %ld GB\n", (long int) (dev_prop.totalGlobalMem / 1e9));
+    printf("\n");
 }
 
 // init cuda and check for possible errors/compatiblility issues

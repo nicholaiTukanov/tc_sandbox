@@ -243,23 +243,23 @@ __host__ void fp16_gemm_driver(int MP_count) {
         dim3 gridDim( (m + (WMMA_M * blockDim.x / 32 - 1)) / (WMMA_M * blockDim.x / 32), \
                       (n + WMMA_N * blockDim.y - 1) / (WMMA_N * blockDim.y) );
 
-        printf("Required shared memory size: %lu Kb\n", SHMEM_SZ / 1024UL);
+        // printf("Required shared memory size: %lu Kb\n", SHMEM_SZ / 1024UL);
 
         for (int irep = 0; irep < nrepeats; irep++) {
             cu_error_check((CUresult) cudaEventRecord(start));
 
-            wmma_fp16_gemm <<< MP_count, THREADS_PER_BLOCK >>> \
-                        (A, B, C, D, 
-                         m, n, k, 
-                         alpha, beta);
+            // wmma_fp16_gemm <<< MP_count, THREADS_PER_BLOCK >>> \
+            //             (A, B, C, D, 
+            //              m, n, k, 
+            //              alpha, beta);
 
             // total threads = blocks * threads
 
                             // blocks , threads 
-            // wmma_fp16_gemm <<< gridDim, blockDim >>> \
-            //             (A, B, C, D, 
-            //              m, n, k, 
-            //              alpha, beta);
+            wmma_fp16_gemm <<< gridDim, blockDim >>> \
+                        (A, B, C, D, 
+                         m, n, k, 
+                         alpha, beta);
 
             cu_error_check((CUresult) cudaEventRecord(stop));
             cu_error_check((CUresult) cudaEventSynchronize(stop));
