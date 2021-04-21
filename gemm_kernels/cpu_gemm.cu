@@ -1,7 +1,6 @@
 #include "monolithic.h"
 
 
-// assumes row major order for A, B, C
 template <typename mat_type_in, typename mat_type_out>
 void cpu_ref_sgemm
 (
