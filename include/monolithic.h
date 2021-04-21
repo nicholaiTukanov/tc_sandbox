@@ -11,10 +11,13 @@ using namespace nvcuda::wmma;
 #include <type_traits>
 using namespace std;
 
+
 // misc defines
 #define DID_WE_MAKE_IT printf("we made it.\n");
 #define max( x, y ) ( ( x ) > ( y ) ? x : y )
 #define dabs( x ) ( (x) < 0 ? -(x) : x )
+extern long int SH_MEM_SZ;
+
 
 template <typename mat_type_in, typename mat_type_out>
 void cpu_ref_sgemm
@@ -32,7 +35,8 @@ void cpu_ref_sgemm
     mat_type_out beta 
 );
 
-__host__ void fp16_gemm_driver(int MP_Count);
+// __host__ void shared_v_global();
+__host__ void fp16_gemm_driver();
 
 // system util prototypes
 int init();

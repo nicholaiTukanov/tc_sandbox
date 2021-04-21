@@ -18,7 +18,7 @@ LINKER         := $(CC)
 
 # compile time macros
 PRINT_PROP     := 1
-MACROS         := -DPRINT_PROP=1$(PRINT_PROP)
+MACROS         := -DPRINT_PROP=$(PRINT_PROP)
 
 # flags to be passed into CC
 CFLAGS         := -I$(CUDA_INCLUDE) -I$(INCLUDE) $(MACROS) -arch=sm_70 -std=c++11
@@ -27,22 +27,23 @@ CFLAGS         := -I$(CUDA_INCLUDE) -I$(INCLUDE) $(MACROS) -arch=sm_70 -std=c++1
 CUDA_LD        := -lcuda 
 
 # object files
+UTIL_OBJS      := $(call change_file_types, $(SRC_PATH)/utils, cu, o)
 DRIVER_OBJS    := $(call change_file_types, $(SRC_PATH)/drivers, cu, o)
 KERNEL_OBJS    := $(call change_file_types, $(SRC_PATH)/gemm_kernels, cu, o)
-UTIL_OBJS      := $(call change_file_types, $(SRC_PATH)/utils, cu, o)
 
 # list of all object files
-OBJS          := $(sort $(DRIVER_OBJS) $(KERNEL_OBJS) $(UTIL_OBJS))
+OBJS          := $(sort $(UTIL_OBJS) $(DRIVER_OBJS) $(KERNEL_OBJS) )
 
-all: driver
+
+all: kernels
 
 # compilation rule
 $(OBJS): %.o: %.cu
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # linker rule
-driver: $(OBJS)
-	$(LINKER) $(OBJS) -o ./driver.x $(CUDA_LD) 	
+kernels: $(OBJS)
+	$(LINKER) $(OBJS) -o ./test_kernel.x $(CUDA_LD) 	
 
 clean_driver:
 	rm -f ./drivers/*.o
