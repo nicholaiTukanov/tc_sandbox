@@ -1,0 +1,46 @@
+general question:
+
+can i use the same packing for SIMD CPU GEMM kernels for SIMT GPU GEMM kernels?
+
+
+
+80 Volta MPs
+2048 threads per MP
+64 warps per MP
+96 KB shared memory per MP
+48 KB shared memory per thread blocks
+
+L2 Cache size = 4608 KB
+
+
+Number of times a TC will be used in a wmma instruction is WMMA_
+- number comes from doing size of 
+
+equation to determine number of bytes per wmma
+
+    A takes (mr)(k_wmma)(S_data_in)
+    B takes (nr)(k_wmma)(S_data_in)
+    C takes (mr)(nr)(S_data_out)
+
+total = (mr)(k_wmma)(S_data_in) + (nr)(k_wmma)(S_data_in) + (mr)(nr)(S_data_out)
+      = (k_wmma) (S_data_in) (mr+nr) + (mr)(nr)(S_data_out)
+
+thus in shgemm we get
+
+    A and B both take (WMMA_)(WMMA_)(2) = 512
+    C takes (WMMA_)(WMMA_)(4) = 1024
+
+    total = 2*512 + 1024 = 2048 bytes per wmma in shgemm
+
+
+my approach:
+
+each thread in a warp will get the same address of the result matrix
+
+therefore we need equations to calculate the address
+
+assumptions:
+
+split shared memory by half
+1 warp = 1 block
+32 threads = 1 warp

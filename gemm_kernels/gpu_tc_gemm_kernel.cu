@@ -5,83 +5,48 @@
 #define WMMA_N 16
 #define WMMA_K 16
 
-
-/*
-
-    general question:
-
-    can i use the same packing for SIMD CPU GEMM kernels for SIMT GPU GEMM kernels?
-
-
-
-80 Volta MPs
-2048 threads per MP
-64 warps per MP
-96 KB shared memory per MP
-48 KB shared memory per thread blocks
-
-L2 Cache size = 4608 KB
-
-
-Number of times a TC will be used in a wmma instruction is WMMA_
-- number comes from doing size of 
-
-equation to determine number of bytes per wmma
-
-    A takes (mr)(k_wmma)(S_data_in)
-    B takes (nr)(k_wmma)(S_data_in)
-    C takes (mr)(nr)(S_data_out)
-
-total = (mr)(k_wmma)(S_data_in) + (nr)(k_wmma)(S_data_in) + (mr)(nr)(S_data_out)
-      = (k_wmma) (S_data_in) (mr+nr) + (mr)(nr)(S_data_out)
-
-thus in shgemm we get
-
-    A and B both take (WMMA_)(WMMA_)(2) = 512
-    C takes (WMMA_)(WMMA_)(4) = 1024
-
-    total = 2*512 + 1024 = 2048 bytes per wmma in shgemm
-
-
-my approach:
-
-each thread in a warp will get the same address of the result matrix
-
-therefore we need equations to calculate the address
-
-assumptions:
-
-split shared memory by half
-1 warp = 1 block
-32 threads = 1 warp
-
-48 KB per
-
-
-*/
-
-
 /* 
     function details: pack a matrix into shared memory
+
     facts:
         * 1 block will get 48 KB of shared memory
         * total memory taken by matrix = m*n*S_data
-    cases to consider: 
-        * matrix size > shared memory
-        * how to tell threads to pack?
+        
     assume:
         * incoming matrix is in row major order
         * we want to pack into m x k_mma panels
+        
+    cases to consider: 
+        * matrix size > shared memory
+        * how to tell threads to pack?
+    
 */
 __device__ void pack_half_matrix(
                half *matrix,
     __shared__ half *sh_matrix
 )
 {
-    
+
 }
 
 
+/*
+    function details: computes mxnxk shgemm using wmma
+
+    facts:
+        * 1 warp will compute a 16x16x16 mat-mul
+        * each warp holds its own fragements
+        * each thread in a warp must get the same starting address for the matrix
+        
+    assume: 
+        * matrices are multiples of WMMA_M x WMMA_N x WMMA_K
+        * matrices are not transposed
+    
+    consider:
+        * packing into shared (how to choose tile size?)
+        * number of threads to use
+
+*/
 __global__ void  gpu_tc_gemm(
     half *A,
     half *B,
