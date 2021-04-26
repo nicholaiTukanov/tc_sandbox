@@ -50,13 +50,20 @@ void parse_input_gen(vector<int> *inputs) {
 
 int main(int argc, char *argv[]) 
 {
-    vector<int> inputs;
 
+    if (argc != 1){
+
+        // parse_options(argc, argv);
+
+    }
+
+
+
+    vector<int> inputs;
     if ( file_exists("./kernel_inputs/input.general") )
     {
         parse_input_gen(&inputs);
     }
-
     // set default values
     else 
     {
@@ -69,13 +76,16 @@ int main(int argc, char *argv[])
         inputs[FORCE_CREATE] = false;
     }
 
-    // print_inputs(inputs);
+
+
 
     // init cuda for tensor cores
     int MP_count = init((bool)inputs[FORCE_CREATE]);
     
-    fp16_gemm_driver(
-        inputs
-    );
+    test_packing();
+
+    // fp16_gemm_driver(
+    //     inputs
+    // );
 }
 

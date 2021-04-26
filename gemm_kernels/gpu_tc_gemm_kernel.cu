@@ -1,6 +1,5 @@
 #include "monolithic.h"
 
-
 #define WMMA_M 16
 #define WMMA_N 16
 #define WMMA_K 16
@@ -21,13 +20,59 @@
         * how to tell threads to pack?
     
 */
-__device__ void pack_half_matrix(
-               half *matrix,
-    __shared__ half *sh_matrix
-)
-{
+// __device__ void pack_half_matrix_a(
+//                half *A,
+//                half *A_sh,
+//                int ld_a,
+//                int k,
+//                half *A_pack
+// )
+// {
 
-}
+//     /*
+//         number of threads = warps * 32
+//         warps = (m*n) / (WMMA_M * WMMA_N)
+
+//         threads are configured in the following way (all elems enclosed in brackets are in a warp)
+
+//                         warp_x 0               warp_x 1                   warp_x x
+//         warp_y 0  [t(0,0) ... t(0,31)] [t(0,32) ... t(0,63)] ... [t(0,32*x) ... t(0,32*x+31)]
+
+//         warp_y 1  [t(1,0) ... t(1,31)] [t(1,32) ... t(1,63)] ... [t(1,32*x) ... t(1,32*x+31)]
+//                                                 .
+//                                                 .
+//                                                 .
+//         warp_y y  [t(y,0) ... t(y,31)] [t(y,32) ... t(y,63)] ... [t(y,32*x) ... t(y,32*x+31)]
+
+//         if 1 warp = 1 block, then a warp needs to pack the entire shared memory allocated to a block
+//     */
+//     int i = (blockIdx.x * blockDim.x + threadIdx.x),
+//         j = (blockIdx.y * blockDim.y + threadIdx.y);
+
+
+//     // 1 warp will pack 32 elements (2 cols of A)
+
+//     // lets assume we have access to only 1 thread
+//     if(i < 32 && j == 0)
+//     {
+//         int k_idx = 0;
+//         for(int p=0; p < (k / 32); p+=32)
+//         {
+//             // col 1
+//             if (i < 16)
+//             {
+//                 A_sh [p + i] = A_pack [p + i] = A [k_idx + i*ld_a];
+                
+//             }
+                
+//             // col 2
+//             else
+//                 A_sh [p + i] = A_pack [p + i] = A [(k_idx+1) + (i-16)*ld_a];
+//             k_idx += 2;
+//         }
+//     }
+//     __syncthreads();
+// }
 
 
 /*
@@ -70,8 +115,9 @@ __global__ void  gpu_tc_gemm(
     nvcuda::wmma::fragment<nvcuda::wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> c_frag;
     nvcuda::wmma::fragment<nvcuda::wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> acc_frag; 
 
-    // __shared__ half *A_sh[6144];
-    // __shared__ half *B_sh[18432];
+
+    // __shared__ half A_sh[WMMA_M];
+    // pack_half_matrix_a(A, A_sh, ld_a, k, NULL);
 
     // pack ideas:
     // pack a row/col major matrix into each warp
@@ -80,19 +126,7 @@ __global__ void  gpu_tc_gemm(
 
     // assumes that each block will take up 1 warp
     int i = (blockIdx.x * blockDim.x + threadIdx.x) / warpSize,
-    j = (blockIdx.y * blockDim.y + threadIdx.y);
-
-
-    // printf("thread(%d, %d)\n", i, j);
-
-    // pack m_mma x k_mma tiles of A and k_mma x n_mma tiles of B into shared memory
-    // store the tiles in row major order (order of the block matrix)
-    // pack more tiles of into shared since we can get more reuse out of it
-    // after shared memory buffers have been created
-    // run through shared memory buffers and compute into accumulator
-
-
-    
+        j = (blockIdx.y * blockDim.y + threadIdx.y);
 
     // Initialize the output to zero
     nvcuda::wmma::fill_fragment(acc_frag, 0.0f);
@@ -109,7 +143,7 @@ __global__ void  gpu_tc_gemm(
             row_b < k && col_b < n) 
         {
             // load a 16x16 matrix into the matrix fragements
-            nvcuda::wmma::load_matrix_sync(a_frag, A + col_a + row_a * ld_a, ld_a);
+            nvcuda::wmma::load_matrix_sync(a_frag, A + col_a + row_a * ld_a, WMMA_M);
             nvcuda::wmma::load_matrix_sync(b_frag, B + col_b + row_b * ld_b, ld_b);
 
             nvcuda::wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);

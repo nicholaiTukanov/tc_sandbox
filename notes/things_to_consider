@@ -44,3 +44,9 @@ assumptions:
 split shared memory by half
 1 warp = 1 block
 32 threads = 1 warp
+
+
+
+total wmma calls 
+
+(m*n*k) / (wmma_m * wmma_n * wmma_k)

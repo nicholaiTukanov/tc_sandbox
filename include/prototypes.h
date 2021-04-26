@@ -28,14 +28,36 @@ __global__ void  gpu_tc_gemm(
     int k
 );
 
+// pack kernels
+__device__ void pack_half_matrix_a(
+               half *A,
+               half *A_sh,
+               int ld_a,
+               int k,
+               half *A_pack
+);
+
+__global__ void gpu_pack_test(
+        half *A,
+        int m,
+        int k,
+        half *A_pack
+);
+
 // test suite for gpu shgemm 
 __host__ void fp16_gemm_driver(
     vector<int> inputs
 );
 
+/* gpu packing sandbox */
+void test_packing();
+
+
+
 // system util prototypes
 int init(bool force_create);
 void cu_error_check(CUresult error);
+
 
 // matrix util prototypes
 
