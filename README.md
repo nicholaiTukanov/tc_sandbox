@@ -1,3 +1,4 @@
-### Tensor Core Sandbox
+## Tensor Core GEMM
+--------------------
 
-A simple sandbox for messing around with Nvidia's tensor cores.
+A testsuite for checking performance and correctness of different GEMM variants on NVIDIA's Tensor core enabled GPUs.
