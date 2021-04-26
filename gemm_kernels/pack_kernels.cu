@@ -34,28 +34,29 @@ __device__ void pack_half_matrix_a(
     // lets assume we have access to only 1 thread
     if(i < 32 && j == 0)
     {
-        int k_idx = 0;
-        for(int p=0; p < (k / 32); p+=32)
+        int p = 0;
+        for(int k_idx=0; k_idx < k; k_idx+=2)
         {
             // col 1
             if (i < 16)
             {
-                A_pack [p + i] = A [k_idx + i*k];
-                // A_sh [p + i] = A [k_idx + i*k];
+                // A_pack [p + i] = A [k_idx + i*k];
+                A_sh [p + i] = A [k_idx + i*k];
                 
             }
                 
             // col 2
             else
             {
-                A_pack [p + i] = A [(k_idx+1) + (i-16)*k];
-                // A_sh [p + i] =  A [(k_idx+1) + (i-16)*k];
+                // A_pack [p + i] = A [(k_idx+1) + (i-16)*k];
+                A_sh [p + i] =  A [(k_idx+1) + (i-16)*k];
             }
                 
-            k_idx += 2;
+            p += 32;
         }
     }
-    __syncthreads();
+
+    __syncwarp();
 }
 
 __global__ void gpu_pack_test(
@@ -67,43 +68,19 @@ __global__ void gpu_pack_test(
 {
 
     extern __shared__ half A_sh[];
-
-    // half * = shared_mem;
     
-    int i = (blockIdx.x * blockDim.x + threadIdx.x);
-
     // 1 warp will pack 32 elements (2 cols of A)
-
     // lets assume we have access to only 1 warp
 
-    int p = 0;
-    for(int k_idx=0; k_idx < k; k_idx+=2)
+
+    pack_half_matrix_a(A, A_sh, k, k, A_pack);
+
+    int i = threadIdx.x;
+    if (i == 0)
     {
-        // col 1
-        if (i < 16)
-        {
-            A_pack [p + i] = A [k_idx + i*k];
-            // A_sh [p + i] = A [k_idx + i*k];
-            
-        }
-            
-        // col 2
-        else
-        {
-            A_pack [p + i] = A [(k_idx+1) + (i-16)*k];
-            // A_sh [p + i] =  A [(k_idx+1) + (i-16)*k];
-        }
-            
-        p += 32;
+        for (int ii = 0; ii < (m*k); ii++)
+            A_pack[ii] = A_sh[ii+1];
     }
-
-    __syncthreads();
-
-
-    // if (i == 0)
-    // {
-    //     for (int ii = 0; ii < (m*k); ii++)
-    //         A_pack[ii] = A_sh [ii];
-    // }
+    __syncwarp();
 
 }

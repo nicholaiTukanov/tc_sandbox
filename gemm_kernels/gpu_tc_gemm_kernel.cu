@@ -143,7 +143,7 @@ __global__ void  gpu_tc_gemm(
             row_b < k && col_b < n) 
         {
             // load a 16x16 matrix into the matrix fragements
-            nvcuda::wmma::load_matrix_sync(a_frag, A + col_a + row_a * ld_a, WMMA_M);
+            nvcuda::wmma::load_matrix_sync(a_frag, A + col_a + row_a * ld_a, ld_a);
             nvcuda::wmma::load_matrix_sync(b_frag, B + col_b + row_b * ld_b, ld_b);
 
             nvcuda::wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);

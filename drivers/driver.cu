@@ -82,10 +82,10 @@ int main(int argc, char *argv[])
     // init cuda for tensor cores
     int MP_count = init((bool)inputs[FORCE_CREATE]);
     
-    test_packing();
+    // test_packing();
 
-    // fp16_gemm_driver(
-    //     inputs
-    // );
+    fp16_gemm_driver(
+        inputs
+    );
 }
 

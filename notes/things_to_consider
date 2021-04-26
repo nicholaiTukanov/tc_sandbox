@@ -1,8 +1,24 @@
-general question:
+This document is a compilation of various things I thought were important to note down.
+
+This format goes as follows
+* each section starts after a line of /
+* the text after a # denotes the title of the section
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+# general questions
 
 can i use the same packing for SIMD CPU GEMM kernels for SIMT GPU GEMM kernels?
 
+what need to be done to increase TC utilization?
 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+# hardware properties
 
 80 Volta MPs
 2048 threads per MP
@@ -12,26 +28,32 @@ can i use the same packing for SIMD CPU GEMM kernels for SIMT GPU GEMM kernels?
 
 L2 Cache size = 4608 KB
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Number of times a TC will be used in a wmma instruction is WMMA_
-- number comes from doing size of 
+# deductions from hardware properties
 
 equation to determine number of bytes per wmma
 
-    A takes (mr)(k_wmma)(S_data_in)
-    B takes (nr)(k_wmma)(S_data_in)
-    C takes (mr)(nr)(S_data_out)
 
-total = (mr)(k_wmma)(S_data_in) + (nr)(k_wmma)(S_data_in) + (mr)(nr)(S_data_out)
-      = (k_wmma) (S_data_in) (mr+nr) + (mr)(nr)(S_data_out)
+    A takes (m_wmma)(k_wmma)(S_data_in)
+    B takes (n_wmma)(k_wmma)(S_data_in)
+    C takes (m_wmma)(n_wmma)(S_data_out)
+
+total = (m_wmma)(k_wmma)(S_data_in) + (n_wmma)(k_wmma)(S_data_in) + (m_wmma)(n_wmma)(S_data_out)
+      = (k_wmma) (S_data_in) (m_wmma+n_wmma) + (m_wmma)(n_wmma)(S_data_out)
 
 thus in shgemm we get
 
-    A and B both take (WMMA_)(WMMA_)(2) = 512
-    C takes (WMMA_)(WMMA_)(4) = 1024
-
     total = 2*512 + 1024 = 2048 bytes per wmma in shgemm
 
+total wmma calls 
+
+(m*n*k) / (wmma_m * wmma_n * wmma_k)
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+# ideas on shgemm
 
 my approach:
 
@@ -40,13 +62,26 @@ each thread in a warp will get the same address of the result matrix
 therefore we need equations to calculate the address
 
 assumptions:
-
 split shared memory by half
 1 warp = 1 block
 32 threads = 1 warp
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-total wmma calls 
 
-(m*n*k) / (wmma_m * wmma_n * wmma_k)
+# info pulled from cuda docs
+
+
+An exception is the case where all threads in a warp address the same shared memory address, 
+resulting in a broadcast.
+
+
+
+The fraction of cycles the tensor (HMMA / IMMA) pipe was active. The value represents an average 
+over a time interval and is not an instantaneous value. Higher values indicate higher utilization 
+of the Tensor Cores. An activity of 1 (100%) is equivalent to issuing a tensor instruction every 
+other cycle for the entire time interval. An activity of 0.2 (20%) could indicate 20% of the SMs 
+are at 100% utilization over the entire time period, 100% of the SMs are at 20% utilization over 
+the entire time period, 100% of the SMs are at 100% utilization for 20% of the time period, or any 
+combination in between (see DCGM_FI_PROF_SM_ACTIVE to help disambiguate these possibilities).
