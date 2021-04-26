@@ -21,11 +21,18 @@ what need to be done to increase TC utilization?
 # hardware properties
 
 80 Volta MPs
+8 TC per MP
 2048 threads per MP
 64 warps per MP
 96 KB shared memory per MP
 48 KB shared memory per thread blocks
 4608 KB of L2 
+
+1 TC does 4x4x4 mat-mul, this results in 2*4^3 flops = 2^7 flops per TC
+
+1 volta can do TC_per_MP * MP_per_volta * FLOPS_per_TC = 8 * 80 * 2^7 = 81,920 FLOPS per volta
+
+1 wmma does 16x16x16 mat-mul, this results in 2*16^3 flops = 2^13 flops per wmma
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
