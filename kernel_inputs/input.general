@@ -1,0 +1,14 @@
+
+# This file will contain initialization for the gpu testsuite
+# Written by Nicholai Tukanov
+
+# problem size defines
+64      # start problem size
+1024    # end problem size
+16      # problem size increment
+
+# number of kernel repeats
+10       # nrepeats
+
+# force create a device properties file (0 = false, 1 = true)
+0
