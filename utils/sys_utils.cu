@@ -30,13 +30,16 @@ void save_dev_prop(cudaDeviceProp dev_prop, bool force_create) {
         ofstream dev_prop_file;
         dev_prop_file.open(path_to_file);
         dev_prop_file << "Device Name                    = " << dev_prop.name << endl;
+        dev_prop_file << "Clock rate (MHz)               = " << dev_prop.clockRate / 1024UL << endl;
         dev_prop_file << "MP count                       = " << dev_prop.multiProcessorCount << endl;
         dev_prop_file << "Max blocks per MP              = " << dev_prop.maxBlocksPerMultiProcessor << endl;
+        dev_prop_file << "Registers per MP               = " << dev_prop.regsPerMultiprocessor << endl;
+        dev_prop_file << "Registers per block            = " << dev_prop.regsPerBlock << endl;
         dev_prop_file << "Max threads per MP             = " << dev_prop.maxThreadsPerMultiProcessor << endl;
         dev_prop_file << "Max threads per block          = " << dev_prop.maxThreadsPerBlock << endl;
         dev_prop_file << "Max thread dims per block      " << str_dim3(dev_prop.maxThreadsDim) << endl; 
         dev_prop_file << "Max Grid Size:                 " << str_dim3(dev_prop.maxGridSize) << endl;
-        dev_prop_file << "Memory Clock Rate (GHz)        = " << dev_prop.memoryClockRate / 1000 << endl;
+        dev_prop_file << "Memory Clock Rate (MHz)        = " << dev_prop.memoryClockRate / 1000 << endl;
         dev_prop_file << "Warp Size                      = " << dev_prop.warpSize << endl;
         dev_prop_file << "Shared Memory per MP (KB)      = " << dev_prop.sharedMemPerMultiprocessor / 1024UL << endl;
         dev_prop_file << "Shared Memory per Block (KB)   = " << dev_prop.sharedMemPerBlock / 1024UL << endl;

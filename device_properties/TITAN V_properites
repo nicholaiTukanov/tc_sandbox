@@ -1,11 +1,14 @@
 Device Name                    = TITAN V
+Clock rate (MHz)               = 1420
 MP count                       = 80
 Max blocks per MP              = 32
+Registers per MP               = 65536
+Registers per block            = 65536
 Max threads per MP             = 2048
 Max threads per block          = 1024
 Max thread dims per block      ( 1024, 1024, 64 )
 Max Grid Size:                 ( 2147483647, 65535, 65535 )
-Memory Clock Rate (GHz)        = 850
+Memory Clock Rate (MHz)        = 850
 Warp Size                      = 32
 Shared Memory per MP (KB)      = 96
 Shared Memory per Block (KB)   = 48

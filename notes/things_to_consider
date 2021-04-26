@@ -25,8 +25,7 @@ what need to be done to increase TC utilization?
 64 warps per MP
 96 KB shared memory per MP
 48 KB shared memory per thread blocks
-
-L2 Cache size = 4608 KB
+4608 KB of L2 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -66,6 +65,8 @@ split shared memory by half
 1 warp = 1 block
 32 threads = 1 warp
 
+to increase TC utilization, we ...
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -76,8 +77,6 @@ split shared memory by half
 An exception is the case where all threads in a warp address the same shared memory address, 
 resulting in a broadcast.
 
-
-
 The fraction of cycles the tensor (HMMA / IMMA) pipe was active. The value represents an average 
 over a time interval and is not an instantaneous value. Higher values indicate higher utilization 
 of the Tensor Cores. An activity of 1 (100%) is equivalent to issuing a tensor instruction every 
@@ -85,3 +84,14 @@ other cycle for the entire time interval. An activity of 0.2 (20%) could indicat
 are at 100% utilization over the entire time period, 100% of the SMs are at 20% utilization over 
 the entire time period, 100% of the SMs are at 100% utilization for 20% of the time period, or any 
 combination in between (see DCGM_FI_PROF_SM_ACTIVE to help disambiguate these possibilities).
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+# scratch pad 
+
+an avg 0.000071842 seconds to compute a 720x720x720 shgemm
+
+thus (2*720^3) / (0.000071842 * 10^12) = 10.4 TFLOPS
+
+10.4 / 119 ~= 9% of peak
