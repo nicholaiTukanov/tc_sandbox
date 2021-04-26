@@ -12,7 +12,6 @@ __host__ void fp16_gemm_driver(
     vector<int> inputs
 )
 {
-
     // matrix size
     int m, n, k;
 
@@ -94,6 +93,20 @@ __host__ void fp16_gemm_driver(
         // printf("x = %d\n", x);
         // printf("y = %d\n", y);
 
+
+
+        /*
+            1 block = 1 warp (32 threads)
+            1 warp will compute a 16x16x16 shgemm
+            number of warps = number of 16x16 tiles of c
+
+            if C is m x n, BLOCKS will be (m/16, n/16)
+            reason: BLOCKS is a 2d grid of warps where each warp will update the respective 16x16
+                tile of C   
+
+            https://cnugteren.github.io/tutorial/images/gemm4a.png
+            - purple grid represents 1 block/warp
+        */
         dim3 BLOCKS( x, y );
         dim3 THREADS(32);
 
@@ -105,10 +118,6 @@ __host__ void fp16_gemm_driver(
             cudaEventRecord(start);
 
             // call kernel
-
-            // 1 block = 1 warp
-            // 1 warp will compute a 16x16x16 shgemm
-            // number of warps = number of 16x16 tiles of c
             gpu_tc_gemm <<< BLOCKS, THREADS >>> 
                     (   
                         A_dev, 

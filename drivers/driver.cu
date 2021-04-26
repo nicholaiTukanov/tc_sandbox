@@ -69,8 +69,7 @@ int main(int argc, char *argv[])
         inputs[FORCE_CREATE] = false;
     }
 
-    print_inputs(inputs);
-    // exit(0);
+    // print_inputs(inputs);
 
     // init cuda for tensor cores
     int MP_count = init((bool)inputs[FORCE_CREATE]);

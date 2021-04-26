@@ -61,12 +61,24 @@ split shared memory by half
 */
 
 
-// this will pack a matrix into shared memoryw
+/* 
+    function details: pack a matrix into shared memory
+    facts:
+        * 1 block will get 48 KB of shared memory
+        * total memory taken by matrix = m*n*S_data
+    cases to consider: 
+        * matrix size > shared memory
+        * how to tell threads to pack?
+    assume:
+        * incoming matrix is in row major order
+        * we want to pack into m x k_mma panels
+*/
 __device__ void pack_half_matrix(
-    half* A
+               half *matrix,
+    __shared__ half *sh_matrix
 )
 {
-
+    
 }
 
 

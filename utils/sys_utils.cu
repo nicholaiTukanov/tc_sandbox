@@ -50,7 +50,7 @@ void save_dev_prop(cudaDeviceProp dev_prop, bool force_create) {
 // init cuda and check for possible errors/compatiblility issues
 int init(bool force_create) {
 
-    printf("Initializing CUDA...\n");
+    // printf("Initializing CUDA...\n");
     cuInit(0);
 
     int dev_count;
@@ -79,7 +79,7 @@ int init(bool force_create) {
 
     save_dev_prop(dev_prop, force_create);
 
-    printf("Initialization is complete.\n\n\n");
+    // printf("Initialization is complete.\n\n\n");
 
     return dev_prop.multiProcessorCount;
 }
