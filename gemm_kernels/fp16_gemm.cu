@@ -13,7 +13,9 @@ __host__ void fp16_gemm_driver(
 )
 {
     // matrix size
-    int m, n, k;
+    int m = 16, 
+        n = 16, 
+        k = 16;
 
     // strides
     int rs_a, cs_a, 
@@ -55,7 +57,7 @@ __host__ void fp16_gemm_driver(
 
         best_time = 1e9;
 
-        m = n = k = p;
+        // m = n = k = p;
 
         #if ROW_MAJOR
         rs_a = ld_a = k, cs_a = 1, 
@@ -108,7 +110,7 @@ __host__ void fp16_gemm_driver(
             - purple grid represents 1 block/warp
         */
         dim3 BLOCKS( x, y );
-        dim3 THREADS(32);
+        dim3 THREADS(256);
 
         for (int irep=0; irep < nrepeats; irep++) 
         {

@@ -28,6 +28,20 @@ __global__ void  gpu_tc_gemm(
     int k
 );
 
+__global__ void  gpu_tc_gemm_(
+    half *A,
+    half *B,
+    float *C,
+    float alpha,
+    float beta,
+    int ld_a,
+    int ld_b,
+    int ld_c,
+    int m,
+    int n,
+    int k
+);
+
 // pack kernels
 __device__ void pack_half_matrix_a(
                half *A,
@@ -51,6 +65,7 @@ __host__ void fp16_gemm_driver(
 
 /* gpu packing sandbox */
 void test_packing();
+void test_kernel();
 
 
 

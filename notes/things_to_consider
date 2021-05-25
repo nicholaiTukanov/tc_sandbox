@@ -102,3 +102,33 @@ an avg 0.000071842 seconds to compute a 720x720x720 shgemm
 thus (2*720^3) / (0.000071842 * 10^12) = 10.4 TFLOPS
 
 10.4 / 119 ~= 9% of peak
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+# general notes
+
+1 warp gets 2 tensor cores
+each tensore core can do a 4x4x4 mat mul
+according to nvidia, 1 tensore core op will take 1 cycle
+1 wmma will compute a 16x16x16 mat mul
+
+each element represents a 4x4 matrix
+
+                 B00 B01 B02 B03
+                 B10 B11 B12 B13
+                 B20 B21 B22 B23
+                 B30 B31 B32 B33
+
+A00 A01 A02 A03  C00 C01 C02 C03
+A10 A11 A12 A13  C10 C11 C12 C13
+A20 A21 A22 A23  C20 C21 C22 C23
+A30 A31 A32 A33  C30 C31 C32 C33
+
+
+- 4 seperate tensor calls for 1 tile of C
+C00 += (A00)(B00) + (A01)(B10) + (A02)(B20) + (A03)(B30)
+
+- each wmma instruction requires 4 * 16 tensor core calls
+- assuming 

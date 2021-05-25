@@ -21,7 +21,7 @@ PRINT_PROP     := 1
 MACROS         := -DPRINT_PROP=$(PRINT_PROP)
 
 # flags to be passed into CC
-CFLAGS         := -I$(CUDA_INCLUDE) -I$(INCLUDE) $(MACROS) -arch=sm_70 -std=c++11
+CFLAGS         := -I$(CUDA_INCLUDE) -I$(INCLUDE) $(MACROS) -m64 -arch=sm_70 -std=c++11
 
 # load flags
 CUDA_LD        := -lcuda 
